@@ -242,7 +242,8 @@ nhanes_df |>
     missing_mims = sum(is.na(mims))
   )
 ```
-Among records with snowfall greater than 0 and less than 100 mm, smaller snowfall amounts are more common. The distributions have similar shapes across years, with concentrations near 25, 50, and 75 mm. There is no obvious consistent shift over time in these selected snowfall distributions. This plot does not compare annual snowfall totals.
+
+After excluding participants younger than 21 years and those with missing demographic information, 228 participants remain. The merged dataset contains 328,320 participant-minute observations, with 1,440 minutes per participant and no missing MIMS values among retained participants.
 
 ## Participants by education and sex
 
@@ -276,9 +277,11 @@ nhanes_covar |>
   ) +
   theme(legend.position = "none")
 ```
+
 The largest education category is more than high school, with 115 participants. Numbers of men and women are similar in the lowest and highest education categories, whereas the high school equivalent group includes more men than women (35 versus 23).
 
 Participants with more than high school education have lower median ages: 43.5 years for men and 41 years for women. In the high school equivalent group, women have a higher median age than men (62 versus 53 years). Median ages are similar for men and women with less than high school education (60 and 61 years).
+
 ## Total daily activity and age
 
 ```{r nhanes_total_activity, fig.width=9, fig.asp=0.5}
@@ -306,6 +309,7 @@ nhanes_total |>
   ) +
   theme(legend.position = "bottom")
 ```
+
 Total daily activity tends to decrease with age for both men and women within each education category. There is substantial individual variability and overlap between the sexes. The fitted trends differ across education groups, but these descriptive associations do not establish causal effects of age, sex, or education on activity.
 
 ## Activity patterns over 24 hours
@@ -347,6 +351,7 @@ nhanes_time |>
   ) +
   theme(legend.position = "bottom")
 ```
+
 Across all education groups, average activity is lowest overnight, increases in the morning, remains elevated during the day, and declines in the late evening. Among participants with more than high school education, women generally have higher daytime activity than men. Sex differences are smaller and vary over the day in the other education groups. These group averages are not adjusted for differences in age or other characteristics.
 
 
