@@ -1,0 +1,178 @@
+---
+title: "P8105 Homework 3"
+author: "Xueying Jia"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(p8105.datasets)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  fig.width = 7,
+  fig.asp = 0.6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal(base_size = 11))
+```
+
+# Problem 1
+
+## Import and inspect the data
+
+```{r import_noaa}
+data("ny_noaa")
+
+dim(ny_noaa)
+glimpse(ny_noaa)
+```
+
+The original dataset contains 2,595,176 daily weather records from 747 stations in New York State, covering 1981–2010. Each row represents one station on one date. Variables include precipitation, snowfall, snow depth, and daily maximum and minimum temperatures. Missingness varies across variables: approximately 5.6% for precipitation, 14.7% for snowfall, 22.8% for snow depth, and 43.7% for each temperature variable.
+
+I extracted year, month, and day from the date. I converted the temperature variables from character to numeric and expressed temperatures in degrees Celsius and precipitation in millimeters. Snowfall and snow depth were already recorded in millimeters.
+
+```{r}
+ny_noaa |>
+  summarize(
+    n_stations = n_distinct(id),
+    first_date = min(date),
+    last_date = max(date)
+  )
+
+ny_noaa |>
+  summarize(
+    prcp_missing_pct = mean(is.na(prcp)) * 100,
+    snow_missing_pct = mean(is.na(snow)) * 100,
+    snwd_missing_pct = mean(is.na(snwd)) * 100,
+    tmax_missing_pct = mean(is.na(tmax)) * 100,
+    tmin_missing_pct = mean(is.na(tmin)) * 100
+  )
+```
+
+```{r}
+noaa_df =
+  ny_noaa |>
+  mutate(
+    year = lubridate::year(date),
+    month = lubridate::month(date),
+    day = lubridate::day(date),
+    tmax = as.numeric(tmax) / 10,
+    tmin = as.numeric(tmin) / 10,
+    prcp = prcp / 10
+  )
+
+dim(noaa_df)
+glimpse(noaa_df)
+```
+
+```{r}
+noaa_df |>
+  filter(!is.na(snow)) |>
+  count(snow, sort = TRUE) |>
+  slice_head(n = 10) |>
+  knitr::kable(
+    col.names = c("Snowfall (mm)", "Number of observations")
+  )
+```
+
+Zero is the most common snowfall value, reflecting the many station-days without snowfall. Common positive values include 25, 13, 51, and 76 mm. These values are close to common inch increments, suggesting that unit conversion and rounding may contribute to the observed pattern.
+
+```{r}
+monthly_temp_df =
+  noaa_df |>
+  filter(
+    month %in% c(1, 7),
+    !is.na(tmax)
+  ) |>
+  group_by(id, year, month) |>
+  summarize(
+    mean_tmax = mean(tmax),
+    n_days = n(),
+    .groups = "drop"
+  ) |>
+  mutate(
+    month = factor(
+      month,
+      levels = c(1, 7),
+      labels = c("January", "July")
+    )
+  )
+
+head(monthly_temp_df)
+```
+
+```{r}
+monthly_temp_df |>
+  ggplot(
+    aes(
+      x = year,
+      y = mean_tmax,
+      group = id
+    )
+  ) +
+  geom_line(alpha = 0.15) +
+  geom_point(alpha = 0.15, size = 0.5) +
+  facet_grid(. ~ month) +
+  labs(
+    title = "Average maximum temperature by station and year",
+    x = "Year",
+    y = "Mean daily maximum temperature (°C)",
+    caption = "Monthly means use available daily temperature records."
+  )
+```
+
+Average maximum temperatures are much higher in July than in January. Temperatures vary across stations, and many stations show similar year-to-year changes. January shows larger year-to-year fluctuations. Station USC00308962 has an unusually low mean maximum temperature of about 14.0°C in July 1988. This mean is based on 31 daily records, so it is not explained by a small number of observed days. The underlying measurements should be checked before interpreting this value.
+
+```{r}
+temp_plot =
+  noaa_df |>
+  filter(
+    !is.na(tmin),
+    !is.na(tmax)
+  ) |>
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_bin2d(bins = 50) +
+  scale_fill_viridis_c(
+    trans = "log10",
+    name = "Count"
+  ) +
+  labs(
+    title = "Daily minimum and maximum temperatures",
+    x = "Minimum temperature (°C)",
+    y = "Maximum temperature (°C)"
+  )
+```
+
+```{r}
+snow_plot =
+  noaa_df |>
+  filter(
+    snow > 0,
+    snow < 100
+  ) |>
+  ggplot(aes(x = factor(year), y = snow)) +
+  geom_violin(
+    fill = "steelblue",
+    alpha = 0.7
+  ) +
+  scale_x_discrete(
+    breaks = as.character(seq(1985, 2010, by = 5))
+  ) +
+  labs(
+    title = "Distribution of positive snowfall below 100 mm",
+    x = "Year",
+    y = "Snowfall (mm)"
+  )
+```
+
+```{r combined_noaa_plots, fig.width=8, fig.asp=1}
+temp_plot / snow_plot
+```
+
+Daily minimum and maximum temperatures show a strong positive association: days with higher minimum temperatures generally also have higher maximum temperatures. The two-dimensional bin plot shows where observations are concentrated without excessive overlap. A few isolated extreme values may indicate data quality issues and should be checked.
+
+Among records with snowfall greater than 0 and less than 100 mm, smaller snowfall amounts are more common. The distributions have similar shapes across years, with concentrations near 25, 50, and 75 mm. There is no obvious consistent shift over time in these selected snowfall distributions. This plot does not compare annual snowfall totals.
